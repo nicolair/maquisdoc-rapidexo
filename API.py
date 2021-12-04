@@ -20,6 +20,7 @@ CORS(app)
 #user = "nicolair"
 user = os.environ.get("GITHUB_USER")
 token = os.environ.get("GITHUB_TOKEN")
+#token = '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'
 
 #pour effacer les fichiers créés, on appelle la fonction clean à la fin (à la fin de quoi?)
 #pas satisfaisante: sessions ??
@@ -205,6 +206,7 @@ def getExos(theme):
     urlFold = url + '/' + nomFold
     r = requests.get(urlFold, headers=jsonhead, auth = (user,token))
     lili = json.loads(r.text)
+    print(lili)
     liEnonc = []
     for file in lili:
         nom, ext = os.path.splitext(file['name'])
