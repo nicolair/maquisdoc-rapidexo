@@ -11,6 +11,7 @@ import random
 import pylatex
 import os
 import uuid
+import urllib
 
 app = Flask(__name__)
 CORS(app)
@@ -18,9 +19,9 @@ CORS(app)
 # github credentials (personal token)
 #token = "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"
 #user = "nicolair"
+#ATTENTION le token a une durée de vie limitée
 user = os.environ.get("GITHUB_USER")
 token = os.environ.get("GITHUB_TOKEN")
-#token = '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'
 
 #pour effacer les fichiers créés, on appelle la fonction clean à la fin (à la fin de quoi?)
 #pas satisfaisante: sessions ??
@@ -31,82 +32,15 @@ def clean(truc):
     return path + ' effacé' 
 #app.teardown_appcontext(clean)
 
+
 # Set the secret key to some random bytes. Keep this really secret!
 #utilisé par la session
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
 
 
-#cette manière de lancer l'appli n'est pas claire du tout.
-#je ne sais pas comment initialiser des para globaux
-
-@app.route("/open_sess")
-def open_sess():
-    session['idSession'] = str(uuid.uuid4())
-    print('coucou de open_sess')
-    return session['idSession']
-
-@app.route("/rapidexoAPI", methods = ['GET'])
-def rapidexoAPI():
-    resp = "coucou from flask "
-    #pour le moment, je ne sais pas utiliser les sessions
-    """
-    if not 'idSession' in session:
-        open_sess()
-        print("vous n'avez pas ouvert de session")
-        
-    else:
-        resp += 'session: ' + session['idsession']
-    """
-    session['idSession'] = str(uuid.uuid4())
-    resp = session['idSession']
-    #data = request.args
-    #print(data)
-    
-    #nbs d'exercices demandés pour chaque thème
-    #attention ce sont des chaines, pas des nbs
-    nbsExos = {}
-    for key in request.args:
-        nbsExos[key] = int(request.args[key])
-    
-    liLatex = []
-    """
-    Pour chaque thème dont on demande des exos
-       récupération de données sur les exos du thème dans le repository
-       formation de la liste aléatoire d'exos (chemins)
-    """
-    listeExosPath = []
-    for theme in nbsExos:
-        if nbsExos[theme] > 0:
-            #récupération de données sur les fichiers du repositorydu thème
-            liEnonc = getExos(theme)
-            #nbs tot d'exos pour le thème
-            nbTotExos = len(liEnonc)
-            #print(theme, nbsExos[theme], nbTotExos)
-            #formation de la liste aléatoire d'exos tirés
-            lili = []
-                #le premier exo est numéroté 0 dans une liste
-            nbTotExos = nbTotExos - 1
-            lili = random.sample(range(nbTotExos),nbsExos[theme])
-            for key in lili:
-                #print(theme + '/' + liEnonc[key])
-                listeExosPath.append(theme + '/' + liEnonc[key])
-   
-    random.shuffle(listeExosPath)
-    #path = listeExosPath[0]
-    
-    #formation du code LateX à compiler
-    listeExosLatex = list(map(getLatex,listeExosPath))
-    
-    #compilation du LateX
-    latexCompilEnonc(listeExosLatex,listeExosPath)
-    
-    #path = "listeRapidexo.pdf"
-    #resp = send_file(path,as_attachment=True)
-
-    return resp
-
 @app.route('/getREFS', methods = ['GET'])
 def getREFS():
+    print("coucou de getREFS")
     #data = request.args
     #print(data)
     
@@ -141,15 +75,6 @@ def getREFS():
    
     random.shuffle(listeExosPath)
     
-    #formation du code LateX à compiler
-    #listeExosLatex = list(map(getLatex,listeExosPath))
-    
-    #compilation du LateX
-    #latexCompilEnonc(listeExosLatex,listeExosPath)
-    
-    #path = "listeRapidexo.pdf"
-    #resp = send_file(path,as_attachment=True)
-
     return jsonify(listeExosPath)
 
 @app.route('/getCOMPIL', methods=['POST'])
@@ -162,25 +87,26 @@ def getCOMPIL():
     
     #formation du code LateX à compiler
     listeExosLatex = list(map(getLatex,listeExosPath))
-    
-    #compilation du LateX
-    latexCompilEnonc(listeExosLatex,listeExosPath)
+    latex_urlstr = latexCompilEnonc(listeExosLatex,listeExosPath)
     
     path = "pdf/Enonc_" + session['idSession'] + '.pdf'
 
     #print(listeExosLatex)
-    resp = {'level':2,'id_session':session['idSession']}
+    resp = {'level':2,
+            'id_session':session['idSession'],
+            'latex_urlstr':latex_urlstr}
     return resp
 
-    
+#présente un fichier latex à compiler par latex-online    
 @app.route('/getPDF/<idSession>')    
 def getPDF(idSession):
-    path = "pdf/Enonc_" + str(idSession) + '.pdf' 
-    @after_this_request
-    def clean(response):
-        os.remove(path)
-        return response
+    path = "pdf/Enonc_" + str(idSession) + '.tex' 
+    #@after_this_request
+    #def clean(response):
+    #    os.remove(path)
+    #    return response
     return send_file(path,as_attachment=True) 
+    
 
 @app.route('/LATEX',methods=['POST'])
 def LATEX():
@@ -194,11 +120,9 @@ def getExos(theme):
     import json
     import os
     """
-    Pour pouvoir faire plus de 60 requêtes par heure  sur l'API de gitHub, il faut s'authentifier (basic authentication) et un token.
+    Pour pouvoir faire plus de 60 requêtes par heure  sur l'API de gitHub, il faut s'authentifier (basic authentication) et un token (variables d'environnement).
     Attention! le token a une durée de vie limitée
     """
-    #token = "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"
-    #user = "nicolair"
     jsonhead = {'Accept': 'application/vnd.github.v3.json'}
 
     url = "https://api.github.com/repos/nicolair/math-rapidexos/contents"
@@ -206,7 +130,7 @@ def getExos(theme):
     urlFold = url + '/' + nomFold
     r = requests.get(urlFold, headers=jsonhead, auth = (user,token))
     lili = json.loads(r.text)
-    print(lili)
+    #print(lili)
     liEnonc = []
     for file in lili:
         nom, ext = os.path.splitext(file['name'])
@@ -217,16 +141,13 @@ def getExos(theme):
 
 def getLatex(path):
     """
-    Pour pouvoir faire plus de 60 requêtes par heure  sur l'API de gitHub, il faut s'authentifier (basic authentication) et un token.
+    Pour pouvoir faire plus de 60 requêtes par heure  sur l'API de gitHub, il faut s'authentifier (basic authentication) et un token (variables d'environnement).
     Pour récupérer le code Latex d'un fichier il faut préciser le "média type" raw pour l'API
     Syntaxe d'appel avec curl
     curl  -u nicolair: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 
           -H"Accept: application/vnd.github.v3.raw" 
           https://api.github.com/repos/nicolair/math-rapidexos/contents/Fracrat/EfracratC9.tex
     """
-    #token = "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"
-    #token = "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"
-    #user = "nicolair"
     rawhead = {'Accept': 'application/vnd.github.v3.raw'}
     url = 'https://api.github.com/repos/nicolair/math-rapidexos/contents/'
     url += path
@@ -244,7 +165,6 @@ def latexCompilEnonc(listeExosLatex,listeExosPath):
                            documentclass='article',
                            document_options=['a4paper','twocolumn'],
                            geometry_options={'hmargin': '1.1cm', 'vmargin': '2.2cm'})
-    #doc = pylatex.Document('listeRapidexo')
     
     #packages
     doc.preamble.append(pylatex.Package('amsmath'))
@@ -304,8 +224,17 @@ def latexCompilEnonc(listeExosLatex,listeExosPath):
         for exo in lili:
             enum.add_item(exo)
     
-    doc.generate_pdf()
-
+    #doc.generate_pdf()
+    doc.generate_tex()
+    
+    #print(path)
+    with open(path + '.tex') as fifi:
+        latexstr = fifi.read()
+        fifi.close()
+        latex_urlstr = urllib.parse.quote(latexstr)
+        #print(latex_urlstr)
+    #détruire le fichier tex
+    return latex_urlstr
 
 
 
