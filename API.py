@@ -12,25 +12,18 @@ import pylatex
 import os
 import uuid
 import urllib
+from pathlib import Path
+import time
 
 app = Flask(__name__)
 CORS(app)
 
-# github credentials (personal token)
-#token = "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"
-#user = "nicolair"
-#ATTENTION le token a une durée de vie limitée
+"""
+    Pour pouvoir faire plus de 60 requêtes par heure  sur l'API de gitHub, il faut s'authentifier (basic authentication) avec un token (variables d'environnement).
+    Attention! le token a une durée de vie limitée
+"""
 user = os.environ.get("GITHUB_USER")
 token = os.environ.get("GITHUB_TOKEN")
-
-#pour effacer les fichiers créés, on appelle la fonction clean à la fin (à la fin de quoi?)
-#pas satisfaisante: sessions ??
-def clean(truc):
-    print(truc)
-    path = "listeRapidexo.pdf"
-    os.remove(path)
-    return path + ' effacé' 
-#app.teardown_appcontext(clean)
 
 
 # Set the secret key to some random bytes. Keep this really secret!
@@ -43,6 +36,8 @@ def getREFS():
     print("coucou de getREFS")
     #data = request.args
     #print(data)
+    
+    clean()
     
     #nbs d'exercices demandés pour chaque thème
     #attention ce sont des chaines, pas des nbs
@@ -119,10 +114,6 @@ def LATEX():
 def getExos(theme):
     import json
     import os
-    """
-    Pour pouvoir faire plus de 60 requêtes par heure  sur l'API de gitHub, il faut s'authentifier (basic authentication) et un token (variables d'environnement).
-    Attention! le token a une durée de vie limitée
-    """
     jsonhead = {'Accept': 'application/vnd.github.v3.json'}
 
     url = "https://api.github.com/repos/nicolair/math-rapidexos/contents"
@@ -141,17 +132,11 @@ def getExos(theme):
 
 def getLatex(path):
     """
-    Pour pouvoir faire plus de 60 requêtes par heure  sur l'API de gitHub, il faut s'authentifier (basic authentication) et un token (variables d'environnement).
-    Pour récupérer le code Latex d'un fichier il faut préciser le "média type" raw pour l'API
-    Syntaxe d'appel avec curl
-    curl  -u nicolair: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 
-          -H"Accept: application/vnd.github.v3.raw" 
-          https://api.github.com/repos/nicolair/math-rapidexos/contents/Fracrat/EfracratC9.tex
+    Pour récupérer le contenu non encodé d'un fichier Latex, il faut préciser le "média type" raw pour l'API
     """
     rawhead = {'Accept': 'application/vnd.github.v3.raw'}
     url = 'https://api.github.com/repos/nicolair/math-rapidexos/contents/'
     url += path
-    # pour récupérer le contenu d'un fichier non encodé
     r = requests.get(url, headers=rawhead, auth = (user,token))
 
     code = r.text
@@ -237,5 +222,19 @@ def latexCompilEnonc(listeExosLatex,listeExosPath):
     return latex_urlstr
 
 
+def clean():
+    print("coucou de clean")
+    #15 mn avant
+    unpeuavant = time.time() - 15*60
+    print(unpeuavant)
+    p = Path('./pdf')
+    files_to_remove = []
+    for child in p.iterdir():
+        if child.suffix == '.tex' and child.stat().st_mtime < unpeuavant:
+            #print(child, child.stat().st_mtime)
+            files_to_remove.append(child)
+    for file in files_to_remove:
+        file.unlink()
 
+    
 
