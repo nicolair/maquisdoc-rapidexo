@@ -79,27 +79,37 @@ def getCOMPIL():
     
     # récupération de la liste des chemins
     listeExosPath = request.get_json()
+    #print(listeExosPath)
+    listeCexosPath = list(map(enonc2corr,listeExosPath))
+    #print(listeCexosPath)
     
     #formation du code LateX à compiler
     listeExosLatex = list(map(getLatex,listeExosPath))
-    latex_urlstr = latexCompilEnonc(listeExosLatex,listeExosPath)
+    listeCexosLatex = list(map(getLatex,listeCexosPath))
     
-    path = "pdf/Enonc_" + session['idSession'] + '.pdf'
+    #latex_urlstr = latexCompilEnonc(listeExosLatex,listeExosPath)
+    latex_urlstrE = makelatex('Enonc_',listeExosLatex,listeExosPath,'Rapidexo: énoncés')
+    latex_urlstrC = makelatex('Corr_',listeCexosLatex,listeExosPath,'Rapidexo: corrigés')
+    
+    #path = "pdf/Enonc_" + session['idSession'] + '.pdf'
 
     #print(listeExosLatex)
     resp = {'level':2,
             'id_session':session['idSession'],
-            'latex_urlstr':latex_urlstr}
+            'latex_urlstrE':latex_urlstrE,
+            'latex_urlstrC':latex_urlstrC}
     return resp
 
-#présente un fichier latex à compiler par latex-online    
+#présente un fichier latex à compiler par latex-online 
+# énoncé
 @app.route('/getPDF/<idSession>')    
 def getPDF(idSession):
     path = "pdf/Enonc_" + str(idSession) + '.tex' 
-    #@after_this_request
-    #def clean(response):
-    #    os.remove(path)
-    #    return response
+    return send_file(path,as_attachment=True) 
+# corrigé
+@app.route('/getCorrPDF/<idSession>')    
+def getCorrPDF(idSession):
+    path = "pdf/Corr_" + str(idSession) + '.tex' 
     return send_file(path,as_attachment=True) 
     
 
@@ -142,10 +152,11 @@ def getLatex(path):
     code = r.text
     return code
 
-def latexCompilEnonc(listeExosLatex,listeExosPath):
-    print("coucou de latexCompil")
+def makelatex(prefix,listeExosLatex,listeExosPath,headText):
+    print("coucou de makelatex")
     
-    path = 'pdf/Enonc_' + session['idSession']
+    #Enoncé
+    path = 'pdf/' + prefix + session['idSession']
     doc = pylatex.Document(path,
                            documentclass='article',
                            document_options=['a4paper','twocolumn'],
@@ -193,7 +204,7 @@ def latexCompilEnonc(listeExosLatex,listeExosPath):
     #header
     header = pylatex.PageStyle("header")
     with header.create(pylatex.Head('C')):
-        header.append(pylatex.basic.LargeText("Rapidexo: énoncés"))
+        header.append(pylatex.basic.LargeText(headText))
         
     doc.preamble.append(header)
     doc.change_document_style("header")
@@ -220,13 +231,13 @@ def latexCompilEnonc(listeExosLatex,listeExosPath):
         #print(latex_urlstr)
     #détruire le fichier tex
     return latex_urlstr
-
+    
 
 def clean():
     print("coucou de clean")
     #15 mn avant
     unpeuavant = time.time() - 15*60
-    print(unpeuavant)
+    #print(unpeuavant)
     p = Path('./pdf')
     files_to_remove = []
     for child in p.iterdir():
@@ -236,5 +247,8 @@ def clean():
     for file in files_to_remove:
         file.unlink()
 
-    
+def enonc2corr(path):
+    (head,tail) = os.path.split(path)
+    Ctail = tail.replace('E','C',1)
+    return head + '/' + Ctail
 
