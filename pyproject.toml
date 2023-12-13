@@ -6,7 +6,7 @@ authors = ["Rémy <nicolair@maquisdoc.net>"]
 
 [tool.poetry.dependencies]
 python = "^3.12"
-Flask = "^2.0.2"
+Flask = "^3.0.0"
 Flask-Cors = "^3.0.10"
 requests = "^2.26.0"
 PyLaTeX = "^1.4.2"
