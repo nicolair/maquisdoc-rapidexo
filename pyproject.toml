@@ -5,11 +5,11 @@ description = ""
 authors = ["Rémy <nicolair@maquisdoc.net>"]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.12"
 Flask = "^2.0.2"
 Flask-Cors = "^3.0.10"
 requests = "^2.26.0"
-PyLaTeX = "^1.4.1"
+PyLaTeX = "^1.4.2"
 gunicorn = "^20.1.0"
 
 [tool.poetry.dev-dependencies]
